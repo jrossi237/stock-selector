@@ -33,7 +33,19 @@ def execute(sector, beta, sharpe, roi):
     roi_low, roi_high = beta
 
     main_df = get_sector_data(sector)
+    get_beta(main_df)
     st.line_chart(main_df)  
+    
+def get_beta(main_df):
+  daily_returns = main_df.pct_change().dropna()
+  st.write(daily_returns)
+  spy_df = alpaca.get_barset('SPY', timeframe ='1D').df
+  spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
+  spy_df_daily_returns = spy_df.pct_change().dropna()
+  spy_var = spy_df_daily_returns['close'].rolling(window=252).var()
+  cov = daily_returns[:].cov(spy_df_daily_returns['close'])
+  beta = cov/spy_var
+  return beta
 
 
 def get_sector_data(sector):
