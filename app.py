@@ -9,7 +9,7 @@ import numpy as np
 import param
 import alpaca_trade_api as tradeapi
 from MCForecastTools import MCSimulation
-
+from numpy import random
 
 # FIXME! Need to move these somewhere else.
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
@@ -68,10 +68,6 @@ def get_sector_data(sector):
 
     return main_df
 
-  
-
-
-
 def main():
 
     # Title
@@ -88,3 +84,25 @@ def main():
   
 
 main()  
+
+main_df (count)
+
+stocks_to_load = sectors_to_tickers[sector]
+stocks_count = stocks_to_load.count()
+weight = np.random.rand(stocks_count)
+weight /=weight.sum()
+num_simulation = 1000
+
+
+# Configure a Monte Carlo simulation to forecast five years cumulative returns
+def mc_simulation(main_df):
+    MC_fiveyear = MCSimulation(
+        portfolio_data = main_df,
+        weights = weights,
+        num_simulation = num_simulation,
+        num_trading_days = 252*5
+    )
+    return MC_fiveyear.portfolio_data
+
+mc_simulation(main_df)
+
