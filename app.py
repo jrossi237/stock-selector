@@ -38,15 +38,31 @@ def execute(sector, beta, sharpe, roi):
     st.line_chart(main_df)  
     
 def get_beta(main_df):
-  daily_returns = main_df.pct_change().dropna()
-  st.write(daily_returns)
-  spy_df = alpaca.get_barset('SPY', timeframe ='1D').df
-  spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
-  spy_df_daily_returns = spy_df.pct_change().dropna()
-  spy_var = spy_df_daily_returns['close'].rolling(window=252).var()
-  cov = daily_returns[:].cov(spy_df_daily_returns['close'])
-  beta = cov/spy_var
-  return beta
+    daily_returns = main_df.pct_change().dropna()
+    daily_returns.index = pd.to_datetime(daily_returns.index)
+    st.write(daily_returns)
+    
+    #Get SPY Dataframe
+    start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
+    end = pd.Timestamp.now().isoformat()
+    spy_df = alpaca.get_barset('SPY', start=start, end=end, timeframe='1D', limit=351).df
+    spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
+    spy_df_daily_returns = spy_df.pct_change().dropna()
+    spy_var = spy_df_daily_returns['close'].rolling(window=252).var()
+    
+    #calculate cov and beta
+    tickers_list =[]
+    beta_list = []
+    for ticker in tickers_list:
+        cov = daily_returns[ticker].cov(spy_df_daily_returns['close'])
+        beta = (cov/spy_var).mean()
+        beta_list.append({ticker:beta})
+    beta_df = pd.DataFrame(beta_list)
+    beta_df = beta_df.stack()
+    beta_df = beta_df.reset_index(level=0)
+    beta_df = beta_df.drop(columns = 'level_0')
+        
+    return beta_df
 
 
 def get_sector_data(sector):
