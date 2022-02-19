@@ -33,15 +33,17 @@ def execute(sector, beta, sharpe, roi):
   sharpe_low, sharpe_high = sharpe
   roi_low, roi_high = roi
 
-
   main_df = get_sector_data(sector)
   
-  filter(beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
+  main_df = filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
 
-  st.line_chart(main_df)  
+  if len(main_df.columns) >0:
+      st.line_chart(main_df)
+  else:
+      st.write("No stocks matched the criteria selected")
 
 
-  st.write(beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high)
+  #st.write(beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high)
 
 def get_sector_data(sector):
   """
@@ -64,15 +66,12 @@ def get_sector_data(sector):
 
 #EH:  Calculate daily return, ROI, std, sharpe ratio
 def cal_ratio(close_price_df):
-
-
-        
   #EH: daily rate
   daily_return_df=close_price_df.pct_change().dropna()
   #EH: cumulative return
   cumulative_return_df=((daily_return_df+1).cumprod()-1).dropna()
   #EH:  get latest cumulative return value for filter purpose
-  roi_df=cumulative_return_df.iloc[0]        
+  roi_df=cumulative_return_df.iloc[-1]        
   #EH:  daily_return_mean_df
   daily_return_mean_df=daily_return_df.mean()
   #EH: std
@@ -88,25 +87,29 @@ def cal_ratio(close_price_df):
         
   return roi_df, sharpe_df, std_df
 
-#EH:  set blank selected tickers
-selected_tickers=[]
-
-#EH:  count number of tickers after sector selection
-count=len(roi_df.index)
-
 #EH:  filter for sharpe and roi
-def filter(sharpe_low, sharpe_high, roi_low, roi_high,roi,sharpe):
-      for each in range(count):
-            if roi.iloc[each]>=roi_low and roi.iloc[each]<=roi_high and sharpe.iloc[each]>=sharpe_low and sharpe.iloc[each]<=sharpe_high:
-                selected_tickers.append(roi.index[each])
-      selected_roi=roi.filter(items=selected_tickers)
-      selected_sharpe=sharpe.filter(items=selected_tickers)
-      return selected_roi, selected_sharpe
+def filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high, roi_low, roi_high):
+
+    roi_df, sharpe_df, std_df = cal_ratio(main_df)
+
+    for ticker in roi_df.keys():
+        if ticker in main_df and roi_df[ticker] < roi_low or roi_df[ticker] > roi_high:
+            #st.write(">> dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
+            main_df.drop(columns=[ticker], axis=1,inplace=True)
+    
+    for ticker in sharpe_df.keys():
+        if ticker in main_df and sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high:
+            #st.write(">> dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
+            main_df.drop(columns=[ticker], axis=1,inplace=True)
+
+    return main_df
 
 #EH:  caluclate confidence interval
-
 ci_zscore_dict={'99%':2.576,
                 '95%':1.96}
+
+#EH:  set blank selected tickers
+selected_tickers=[]
 
 #EH:  define function to print confidence interval and its retuns
 def confidence(stock,conf_pct):
@@ -117,11 +120,11 @@ def confidence(stock,conf_pct):
       f"and up as much as {(upside * 100): .4f}%.")
 
 
-#EH: print CI & its returns for selected tickers
-num_of_stock=selected_tickers.count()
-for num in range(num_of_stock):
-    confidence(selected_stock[num],'99%')
-    confidence(selected_stock[num],'95%')
+    #EH: print CI & its returns for selected tickers
+    num_of_stock=len(selected_tickers)
+    for num in range(num_of_stock):
+        confidence(selected_stock[num],'99%')
+        confidence(selected_stock[num],'95%')
 
 
 
@@ -134,8 +137,8 @@ def main():
   st.sidebar.info( "Select the criteria that you want here.")
   sector = st.sidebar.selectbox("Sectors", sectors)
   beta = st.sidebar.slider('Beta Range', 0.0, 5.0, (1.0,4.0))
-  sharpe = st.sidebar.slider('Sharpe Range', 0.0, 5.0, (1.0,4.0))
-  roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (1.0,4.0))    
+  sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
+  roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
   
   execute(sector, beta, sharpe, roi)
   
