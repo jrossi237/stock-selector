@@ -22,12 +22,47 @@ with open('sp_500_sectors_to_ticker.json') as json_file:
     sectors_to_tickers = json.load(json_file)
 sectors = list(sectors_to_tickers.keys())
 
+styles = """
+body {
+    color: red;
+    background-color: #4F8BF9;
+}
+
+.stTextInput>div>div>input {
+    color: #4F8BF9;
+}
+"""
+
+#st.markdown(f'<style>{styles}</style>', unsafe_allow_html=True)
+
+foo =  """
+    <style>
+
+    [data-testid="stVerticalBlock"] {
+        width: 100px;
+        background-color: red !important;
+    }
+    [data-testid="stHorizontalBlock"][aria-expanded="true"] > div:first-child {
+        width: 100px;
+        background-color: red !important;
+    }
+    [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
+        width: 500px;
+        margin-left: -500px;
+    }
+    </style>
+    """
+
+#st.markdown(foo, unsafe_allow_html=True)
+
 def execute(sector, beta, sharpe, roi):
     """
     This is the main data gathering for this app. It will call other functions
     to assemble a main dataframe which can be used in different ways.
     """
-
+    top_panel = st.container()
+    bottom_panel = st.container()    
+    
     # unpacking the lows and highs into variables that can be used more easliy.
     beta_low, beta_high = beta
     sharpe_low, sharpe_high = sharpe
@@ -35,7 +70,30 @@ def execute(sector, beta, sharpe, roi):
 
     main_df = get_sector_data(sector)
     get_beta(main_df)
-    st.line_chart(main_df)  
+    with top_panel:
+        st.line_chart(main_df)
+
+    with bottom_panel:
+        st.header("Further analysis")
+        tickers = main_df.keys()
+      
+        for ticker in tickers:
+            text_field(ticker, [1,2])
+            #st.text_input(ticker)
+            pass
+        
+def text_field(label, columns=None, **input_params):
+    c1, c2 = st.columns(columns or [1, 4])
+
+    # Display field name with some alignment
+    c1.markdown("##")
+    c1.markdown(label)
+
+    # Sets a default key parameter to avoid duplicate key errors
+    input_params.setdefault("key", label)
+
+    # Forward text input parameters
+    return c2.text_input("", **input_params)    
     
 def get_beta(main_df):
     daily_returns = main_df.pct_change().dropna()
@@ -97,7 +155,7 @@ def main():
     roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (1.0,4.0))    
   
     execute(sector, beta, sharpe, roi)
-  
+
 
 main()  
 
