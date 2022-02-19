@@ -1,3 +1,4 @@
+from ast import And
 import streamlit as st
 
 import requests
@@ -30,12 +31,17 @@ def execute(sector, beta, sharpe, roi):
   # unpacking the lows and highs into variables that can be used more easliy.
   beta_low, beta_high = beta
   sharpe_low, sharpe_high = sharpe
-  roi_low, roi_high = beta
+  roi_low, roi_high = roi
 
 
   main_df = get_sector_data(sector)
+  
+  filter(beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
+
   st.line_chart(main_df)  
 
+
+  st.write(beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high)
 
 def get_sector_data(sector):
   """
@@ -56,7 +62,66 @@ def get_sector_data(sector):
 
   return main_df
 
-  
+#EH:  Calculate daily return, ROI, std, sharpe ratio
+def cal_ratio(close_price_df):
+
+
+        
+  #EH: daily rate
+  daily_return_df=close_price_df.pct_change().dropna()
+  #EH: cumulative return
+  cumulative_return_df=((daily_return_df+1).cumprod()-1).dropna()
+  #EH:  get latest cumulative return value for filter purpose
+  roi_df=cumulative_return_df.iloc[0]        
+  #EH:  daily_return_mean_df
+  daily_return_mean_df=daily_return_df.mean()
+  #EH: std
+  std_df=daily_return_df.std()
+  #EH: ROI
+  # annualized_return
+  trade_days=252
+  annualized_return=daily_return_mean_df*trade_days
+  #EH: annualized std
+  annualized_std=std_df * (trade_days ** 1/2)
+  #EH: sharpe ratio
+  sharpe_df=annualized_return/annualized_std
+        
+  return roi_df, sharpe_df, std_df
+
+#EH:  set blank selected tickers
+selected_tickers=[]
+
+#EH:  count number of tickers after sector selection
+count=len(roi_df.index)
+
+#EH:  filter for sharpe and roi
+def filter(sharpe_low, sharpe_high, roi_low, roi_high,roi,sharpe):
+      for each in range(count):
+            if roi.iloc[each]>=roi_low and roi.iloc[each]<=roi_high and sharpe.iloc[each]>=sharpe_low and sharpe.iloc[each]<=sharpe_high:
+                selected_tickers.append(roi.index[each])
+      selected_roi=roi.filter(items=selected_tickers)
+      selected_sharpe=sharpe.filter(items=selected_tickers)
+      return selected_roi, selected_sharpe
+
+#EH:  caluclate confidence interval
+
+ci_zscore_dict={'99%':2.576,
+                '95%':1.96}
+
+#EH:  define function to print confidence interval and its retuns
+def confidence(stock,conf_pct):
+    downside=daily_return_mean_df[stock] - ci_zscore_dict[conf_pct] *std_df[stock]
+    upside=daily_return_mean_df[stock] + ci_zscore_dict[conf_pct] *std_df[stock]
+    print(f"Using a {conf_pct} confidence interval, "
+      f"the {stock} could trade down as much as {(downside * 100): .4f}%, "
+      f"and up as much as {(upside * 100): .4f}%.")
+
+
+#EH: print CI & its returns for selected tickers
+num_of_stock=selected_tickers.count()
+for num in range(num_of_stock):
+    confidence(selected_stock[num],'99%')
+    confidence(selected_stock[num],'95%')
 
 
 
@@ -76,3 +141,4 @@ def main():
   
 
 main()  
+
