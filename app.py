@@ -40,7 +40,7 @@ def execute(sector, beta, sharpe, roi):
 def get_beta(main_df):
     daily_returns = main_df.pct_change().dropna()
     daily_returns.index = pd.to_datetime(daily_returns.index)
-    st.write(daily_returns)
+    #st.write(daily_returns)
     
     #Get SPY Dataframe
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
@@ -101,17 +101,18 @@ def main():
 
 main()  
 
-main_df (count)
-
-stocks_to_load = sectors_to_tickers[sector]
-stocks_count = stocks_to_load.count()
-weight = np.random.rand(stocks_count)
-weight /=weight.sum()
-num_simulation = 1000
+#main_df (count)
 
 
 # Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc_simulation(main_df):
+
+    stocks_to_load = sectors_to_tickers[sector]
+    stocks_count = stocks_to_load.count()
+    weight = np.random.rand(stocks_count)
+    weight /=weight.sum()
+    num_simulation = 1000
+    
     MC_fiveyear = MCSimulation(
         portfolio_data = main_df,
         weights = weights,
@@ -120,5 +121,5 @@ def mc_simulation(main_df):
     )
     return MC_fiveyear.portfolio_data
 
-mc_simulation(main_df)
+#mc_simulation(main_df)
 
