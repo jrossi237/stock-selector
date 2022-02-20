@@ -25,12 +25,30 @@ with open("sp_500_sectors_to_ticker.json") as json_file:
     sectors_to_tickers = json.load(json_file)
 sectors = list(sectors_to_tickers.keys())
 
+if 'last_sector_loaded' not in st.session_state:
+    st.session_state['last_sector_loaded'] = '-'
+    st.session_state['new_sector_load'] = False
+    # this is setting some default ranges...
+    st.session_state['current_nav_ranges'] = {
+        'beta': (0.0, 5.0),
+        'sharpe': (0.0, 5.0),
+        'roi': (0.0, 5.0)        
+    }
+
 
 def execute(sector, beta, sharpe, roi):
     """
     This is the main data gathering for this app. It will call other functions
     to assemble a main dataframe which can be used in different ways.
     """
+
+    # This is trying to detect if a new sector is loaded marking it in the session if
+    # is is.
+    if sector == st.session_state['last_sector_loaded']:
+        st.session_state['new_sector_load'] = False
+    else:
+        st.session_state['last_sector_loaded'] = sector
+        st.session_state['new_sector_load'] = True
 
     # unpacking the lows and highs into variables that can be used more easliy.
     beta_low, beta_high = beta
@@ -121,13 +139,12 @@ def get_beta(main_df):
     tickers_list = main_df.keys()
     beta_list = []
 
-    beta_df = pd.DataFrame([], columns=['beta'])
+    beta_df = pd.Series()    
     for ticker in tickers_list:
         cov = daily_returns[ticker].cov(spy_df_daily_returns['close'])
         beta = (cov/spy_var)
-        beta_list.append({ticker: beta})
         beta_df.loc[ticker] = beta
-        
+
     return beta_df
 
 
@@ -137,9 +154,9 @@ def get_sector_data(sector):
     This function is responsible for loading all of the stock data within a sector.
     """
     #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
-    global closing_prices_df
-    global main_df 
-    global stocks_df
+    #global closing_prices_df
+    #global main_df 
+    #global stocks_df
     stocks_df = pd.DataFrame()
      
     stocks_to_load = sectors_to_tickers[sector]
@@ -194,24 +211,36 @@ def cal_ratio(close_price_df):
 
 # EH:  filter for sharpe and roi
 def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high):
-
-    beta_df = get_beta(main_df)
-
     roi_df, sharpe_df, std_df = cal_ratio(main_df)
+    beta_df = get_beta(main_df)    
+
+    # When a new sector is loaded, this is taking the highs and lows for the ranges
+    # and setting them in the state. From there, it's trying to reload the page
+    # with the proper values. 
+    if st.session_state['new_sector_load'] == True:
+        st.session_state['current_nav_ranges'] = {
+            'beta': (beta_df.min(), beta_df.max()),            
+            'sharpe': (sharpe_df.min(), sharpe_df.max()),
+            'roi': (roi_df.min(), roi_df.max())        
+        }
+        st.experimental_rerun()
 
     for ticker in roi_df.keys():
-        if ticker in main_df and roi_df[ticker] < roi_low or roi_df[ticker] > roi_high:
+        if ticker in main_df and (roi_df[ticker] < roi_low or roi_df[ticker] > roi_high):
             #st.write(">> dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in sharpe_df.keys():
-        if ticker in main_df and sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high:
+        if ticker in main_df and (sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high):
             #st.write(">> dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in beta_df.index:
-        beta = beta_df.loc[ticker][0]        
-        if ticker in main_df and beta < beta_low or beta > beta_high:
+        if ticker not in beta_df:
+            break
+        
+        beta = beta_df[ticker]
+        if ticker in main_df and (beta < beta_low or beta > beta_high):
             #st.write(">> dropping:", ticker, "::",beta, ":::", beta_low, beta_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
@@ -280,7 +309,10 @@ def mc(closing_prices_df):
     
 
 def main():
-   
+
+    current_nav_ranges = st.session_state['current_nav_ranges']
+    
+    st.write()
 
     # Title
     st.title("Stock Selector App")
@@ -288,9 +320,19 @@ def main():
     #st.sidebar.title("Controls")
     st.sidebar.info( "Select the criteria that you want here.")
     sector = st.sidebar.selectbox("Sectors", sectors)
-    beta = st.sidebar.slider('Beta Range', -0.0, 5.0, (0.0,4.0))
-    sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
-    roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
+    beta = st.sidebar.slider('Beta Range', current_nav_ranges['beta'][0],
+                             current_nav_ranges['beta'][1],
+                             (current_nav_ranges['beta'][0],
+                              current_nav_ranges['beta'][1]))
+    sharpe = st.sidebar.slider('Sharpe Range', current_nav_ranges['sharpe'][0],
+                               current_nav_ranges['sharpe'][1],
+                               (current_nav_ranges['sharpe'][0],
+                                current_nav_ranges['sharpe'][1]))
+    roi = st.sidebar.slider('ROI Range',
+                            current_nav_ranges['roi'][0],
+                            current_nav_ranges['roi'][1],
+                            (current_nav_ranges['roi'][0],
+                             current_nav_ranges['roi'][1]))    
     execute(sector, beta, sharpe, roi)
     #RA Montecarlo simulation
     #print_closing_prices(closing_prices_df)
