@@ -11,6 +11,8 @@ import param
 import alpaca_trade_api as tradeapi
 from MCForecastTools import MCSimulation
 from numpy import random
+from pathlib import Path
+from PIL import Image
 
 # FIXME! Need to move these somewhere else.
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
@@ -186,8 +188,22 @@ def mc(closing_prices_df):
     # Plot simulation outcomes
     st.write(MC_fiveyear.portfolio_data)
     MC_sim_line_plot = MC_fiveyear.plot_simulation()
-    st.line_chart(MC_sim_line_plot.get_figure())
-    
+    MC_sim_line_plot.get_figure()
+    # Save the plot for future use
+    MC_sim_line_plot.get_figure().savefig("MC_fiveyear_sim_plot.png", bbox_inches="tight")
+    img_path = Path("/Users/unicorn/Desktop/stock-selector/MC_fiveyear_sim_plot.png")
+    image = Image.open(img_path)
+    st.image(image, caption='Monte Carlo Simulation')
+    # Plot probability distribution and confidence intervals
+    MC_sim_dist_plot = MC_fiveyear.plot_distribution()
+    MC_sim_dist_plot.get_figure()
+    # Save the plot for future use
+    MC_sim_dist_plot.get_figure().savefig("MC_fiveyear_dist_plot.png", bbox_inches="tight")
+    img1_path = Path("/Users/unicorn/Desktop/stock-selector/MC_fiveyear_dist_plot.png")
+    image = Image.open(img1_path)
+    st.image(image, caption='Monte Carlo Distribution')
+    MC_summary_statistics = MC_fiveyear.summarize_cumulative_return()
+    st.table(MC_summary_statistics) 
     #return MC_fiveyear
     
 def main():
