@@ -39,11 +39,11 @@ def execute(sector, beta, sharpe, roi):
     main_df = filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
     
     get_beta(main_df)
-
-    if len(main_df.columns) >0:
-        st.line_chart(main_df)
-    else:
-        st.write("No stocks matched the criteria selected")
+#RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
+    #if len(main_df.columns) >0:
+     #   st.line_chart(main_df)
+    #else:
+     #   st.write("No stocks matched the criteria selected")
     
 def get_beta(main_df):
     daily_returns = main_df.pct_change().dropna()
@@ -94,11 +94,11 @@ def get_sector_data(sector):
     main_df.index.name = 'date'
     #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
     closing_prices_df = pd.DataFrame(main_df)
-    
     # the y axis is multi-dementional, and this is flattening it.
-    main_df.columns = [col[0] for col in main_df.columns.values]
+#RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
+    #main_df.columns = [col[0] for col in main_df.columns.values]
+    #closing_prices_df.columns = pd.MultiIndex.from_product([closing_prices_df.columns, ['closing']])
     return main_df
-
 
 def print_closing_prices(closing_prices_df):
     st.write(closing_prices_df)
@@ -158,7 +158,6 @@ def confidence(stock,conf_pct):
       f"the {stock} could trade down as much as {(downside * 100): .4f}%, "
       f"and up as much as {(upside * 100): .4f}%.")
 
-
     #EH: print CI & its returns for selected tickers
     num_of_stock=len(selected_tickers)
     for num in range(num_of_stock):
@@ -171,11 +170,31 @@ def confidence(stock,conf_pct):
 
     return main_df
 
+# RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
+def mc(closing_prices_df):
+    global MC_fiveyear
+    #weight = np.random.rand(4),
+    #weight /=weight.sum(),
+    MC_fiveyear = MCSimulation(
+        portfolio_data = closing_prices_df,
+        weights = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1],
+        num_simulation = 500,
+        num_trading_days = 500
+    )
+    MC_fiveyear.portfolio_data
+    MC_fiveyear.calc_cumulative_return()
+    # Plot simulation outcomes
+    st.write(MC_fiveyear.portfolio_data)
+    MC_sim_line_plot = MC_fiveyear.plot_simulation()
+    st.line_chart(MC_sim_line_plot.get_figure())
+    
+    #return MC_fiveyear
+    
 def main():
+    
 
     # Title
     st.title("Stock Selector App")
-
 
     #st.sidebar.title("Controls")
     st.sidebar.info( "Select the criteria that you want here.")
@@ -183,29 +202,16 @@ def main():
     beta = st.sidebar.slider('Beta Range', 0.0, 5.0, (1.0,4.0))
     sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
     roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
-    
     execute(sector, beta, sharpe, roi)
+    #RA Montecarlo simulation
     print_closing_prices(closing_prices_df)
-  
-
+    #RA Montecarlo simulation
+    mc(closing_prices_df)
+    
 main()  
 
 # Configure a Monte Carlo simulation to forecast five years cumulative returns
-def mc_simulation(main_df):
 
-    stocks_to_load = sectors_to_tickers[sector]
-    stocks_count = stocks_to_load.count()
-    weight = np.random.rand(stocks_count)
-    weight /=weight.sum()
-    num_simulation = 1000
-    
-    MC_fiveyear = MCSimulation(
-        portfolio_data = main_df,
-        weights = weights,
-        num_simulation = num_simulation,
-        num_trading_days = 252*5
-    )
-    return MC_fiveyear.portfolio_data
 
 #mc_simulation(main_df)
 
