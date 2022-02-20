@@ -19,7 +19,7 @@ alpaca_secret = 'dNcBOKDiV3Y9mrAj81rCkPT2uysP6my2ZNz6bBHy'
 alpaca = tradeapi.REST(alpaca_key,alpaca_secret,api_version='v2')
 
 sectors_to_tickers = {}
-with open('sp_500_sectors_to_ticker.json') as json_file:
+with open("sp_500_sectors_to_ticker.json") as json_file:
     sectors_to_tickers = json.load(json_file)
 sectors = list(sectors_to_tickers.keys())
 
@@ -35,13 +35,65 @@ def execute(sector, beta, sharpe, roi):
     roi_low, roi_high = roi
 
     main_df = get_sector_data(sector)
+    get_beta(main_df)
 
     main_df = filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
     
-    get_beta(main_df)
+    #EH:  call series data
+    roi_s,sharpe_s,std_s=cal_ratio(main_df)
+    beta_s=get_beta(main_df)
+    #EH:  stats dataframe for streamlit display
+    df_roi=pd.DataFrame(roi_s)
+    df_roi.columns=['ROI']
+    df_sharpe=pd.DataFrame(sharpe_s)
+    df_sharpe.columns=['Sharpe']
+    df_std=pd.DataFrame(std_s)
+    df_std.columns=['STD']
+    # df_beta=pd.DataFrame(beta_s)
+    # df_beta.columns=['Beta']
+    stats_df=pd.concat([df_roi,df_sharpe,df_std], axis=1)
+    #df_beta
+
+
+   
 
     if len(main_df.columns) >0:
         st.line_chart(main_df)
+
+        #EH: streamlit dataframe display
+        st.subheader('Daily Closing Price')
+        st.dataframe(main_df.style.highlight_max(axis=0))
+        #EH: rates display on streamlit 
+        st.subheader('Rates')
+        st.dataframe(stats_df.style.highlight_max(axis=0))
+        #EH:  stock selection for MC simulation
+        st.subheader('Please select up to 4 stocks for MC simulation.')
+
+        #stock selection widget to get weight%
+        # multi_select_stock = pn.widgets.MultiSelect(name='Stock Selections', value=[list(df_roi.index)[0]],options=list(df_roi.index), size=10)
+        selected_stock=st.multiselect("Tickers:", list(df_roi.index))
+        
+        #EH: get weight% for MC simulation of 4 stocks
+        if len(selected_stock) > 4:
+            st.error('Invalid selection count.  Please select up to 4 stocks for MC simulation.')
+            
+        else:
+            #EH:  create dictionary for weight % per ticker
+            weight_dict={}
+            for each in selected_stock:
+                number = st.number_input(f'Please provide a weight percentage for {each}.')
+                st.write(f'The current {each} weight percentage is ', number)
+                weight_dict[each]=number
+                sum_weight_pct= sum(weight_dict.values())
+
+        
+        #EH:  error message for weight percent <>100.
+                if sum_weight_pct != 100:
+                    st.error('Invalid weight percentage input.  The sum of weight percentage should be 100.')
+                else: st.write('Thank you for the input!')
+
+
+ 
     else:
         st.write("No stocks matched the criteria selected")
     
@@ -172,7 +224,8 @@ def main():
     sector = st.sidebar.selectbox("Sectors", sectors)
     beta = st.sidebar.slider('Beta Range', 0.0, 5.0, (1.0,4.0))
     sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
-    roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
+    roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))
+
   
     execute(sector, beta, sharpe, roi)
   
