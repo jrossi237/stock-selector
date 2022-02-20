@@ -1,6 +1,6 @@
 from ast import And
 import streamlit as st
-
+import os
 import requests
 import pandas as pd
 import hvplot.pandas
@@ -177,12 +177,11 @@ def confidence(stock,conf_pct):
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df):
     global MC_fiveyear
-    """weights = np.random.rand(num_of_stock)
-    weights /=weights.sum()
-    st.table(weights)"""
+    weight = np.random.rand(10)
+    weight /=weight.sum()
     MC_fiveyear = MCSimulation(
         portfolio_data = closing_prices_df,
-        weights = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1],
+        weights = weight,
         num_simulation = 500,
         num_trading_days = 500
     )
