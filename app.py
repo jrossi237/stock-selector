@@ -113,20 +113,21 @@ def get_beta(main_df):
         'SPY', start=start, end=end, timeframe='1D', limit=351).df
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
     spy_df_daily_returns = spy_df.pct_change().dropna()
-    spy_var = spy_df_daily_returns['close'].rolling(window=252).var()
+    spy_var = spy_df_daily_returns['close'].var()
+    spy_df_daily_returns = spy_df_daily_returns.tz_convert(None)
+    spy_df_daily_returns.index = spy_df_daily_returns.index.date    
 
     # calculate cov and beta
-    tickers_list = []
+    tickers_list = main_df.keys()
     beta_list = []
+
+    beta_df = pd.DataFrame([], columns=['beta'])
     for ticker in tickers_list:
         cov = daily_returns[ticker].cov(spy_df_daily_returns['close'])
-        beta = (cov/spy_var).mean()
+        beta = (cov/spy_var)
         beta_list.append({ticker: beta})
-    beta_df = pd.DataFrame(beta_list)
-    beta_df = beta_df.stack()
-    beta_df = beta_df.reset_index(level=0)
-    beta_df = beta_df.drop(columns='level_0')
-
+        beta_df.loc[ticker] = beta
+        
     return beta_df
 
 
@@ -149,7 +150,8 @@ def get_sector_data(sector):
        
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
-    
+
+
     #RA: Removing Timestamp
     main_df.index = main_df.index.date   
     main_df.index.name = 'date'
@@ -161,6 +163,7 @@ def get_sector_data(sector):
 #RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
     main_df.columns = [col[0] for col in main_df.columns.values]
     #closing_prices_df.columns = pd.MultiIndex.from_product([closing_prices_df.columns, ['closing']])
+
     return main_df
 
 def print_closing_prices(closing_prices_df):
@@ -192,7 +195,7 @@ def cal_ratio(close_price_df):
 # EH:  filter for sharpe and roi
 def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high):
 
-    #beta_df = get_beta(stocks_df)
+    beta_df = get_beta(main_df)
 
     roi_df, sharpe_df, std_df = cal_ratio(main_df)
 
@@ -204,6 +207,12 @@ def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_h
     for ticker in sharpe_df.keys():
         if ticker in main_df and sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high:
             #st.write(">> dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
+            main_df.drop(columns=[ticker], axis=1, inplace=True)
+
+    for ticker in beta_df.index:
+        beta = beta_df.loc[ticker][0]        
+        if ticker in main_df and beta < beta_low or beta > beta_high:
+            #st.write(">> dropping:", ticker, "::",beta, ":::", beta_low, beta_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     return main_df
@@ -279,7 +288,7 @@ def main():
     #st.sidebar.title("Controls")
     st.sidebar.info( "Select the criteria that you want here.")
     sector = st.sidebar.selectbox("Sectors", sectors)
-    beta = st.sidebar.slider('Beta Range', 0.0, 5.0, (1.0,4.0))
+    beta = st.sidebar.slider('Beta Range', -0.0, 5.0, (0.0,4.0))
     sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
     roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
     execute(sector, beta, sharpe, roi)
