@@ -39,11 +39,10 @@ def execute(sector, beta, sharpe, roi):
     main_df = get_sector_data(sector)
 
     main_df = filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
-    
-    get_beta(stocks_df)
-#RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
-    if len(stocks_df.columns) >0:
-        st.line_chart(stocks_df)
+
+    #RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
+    if len(main_df.columns) >0:
+        st.line_chart(main_df)
     else:
         st.write("No stocks matched the criteria selected")
     
@@ -103,7 +102,7 @@ def get_sector_data(sector):
     stocks_df = main_df.copy(deep=True)
     # the y axis is multi-dementional, and this is flattening it.
 #RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
-    stocks_df.columns = [col[0] for col in main_df.columns.values]
+    main_df.columns = [col[0] for col in main_df.columns.values]
     #closing_prices_df.columns = pd.MultiIndex.from_product([closing_prices_df.columns, ['closing']])
     return main_df
 
@@ -135,7 +134,8 @@ def cal_ratio(close_price_df):
 
 #EH:  filter for sharpe and roi
 def filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high, roi_low, roi_high):
-
+    
+    #beta_df = get_beta(stocks_df)
     roi_df, sharpe_df, std_df = cal_ratio(main_df)
 
     for ticker in roi_df.keys():
@@ -227,9 +227,9 @@ def main():
     roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
     execute(sector, beta, sharpe, roi)
     #RA Montecarlo simulation
-    print_closing_prices(closing_prices_df)
+    #print_closing_prices(closing_prices_df)
     #RA Montecarlo simulation
-    mc(closing_prices_df)
+    #mc(closing_prices_df)
     
 main()  
 
