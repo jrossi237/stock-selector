@@ -73,11 +73,13 @@ def get_beta(main_df):
     return beta_df
 
 
+
 def get_sector_data(sector):
     """
     This function is responsible for loading all of the stock data within a sector.
     """
-  
+    #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
+    global closing_prices_df
     stocks_to_load = sectors_to_tickers[sector]
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
@@ -87,12 +89,20 @@ def get_sector_data(sector):
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
     
-
+    #RA: Removing Timestamp
+    main_df.index = main_df.index.date   
+    main_df.index.name = 'date'
+    #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
+    closing_prices_df = pd.DataFrame(main_df)
+    
     # the y axis is multi-dementional, and this is flattening it.
     main_df.columns = [col[0] for col in main_df.columns.values]
-
     return main_df
 
+
+def print_closing_prices(closing_prices_df):
+    st.write(closing_prices_df)
+    
 #EH:  Calculate daily return, ROI, std, sharpe ratio
 def cal_ratio(close_price_df):
     #EH: daily rate
@@ -173,8 +183,9 @@ def main():
     beta = st.sidebar.slider('Beta Range', 0.0, 5.0, (1.0,4.0))
     sharpe = st.sidebar.slider('Sharpe Range', 0.0, 2.0, (0.0,2.0))
     roi = st.sidebar.slider('ROI Range', 0.0, 5.0, (0.0,5.0))    
-  
+    
     execute(sector, beta, sharpe, roi)
+    print_closing_prices(closing_prices_df)
   
 
 main()  
