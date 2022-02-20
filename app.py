@@ -154,6 +154,8 @@ selected_tickers=[]
 
 #EH:  define function to print confidence interval and its retuns
 def confidence(stock,conf_pct):
+    #RA set the num_of_stock as a global varaible
+    global num_of_stock
     downside=daily_return_mean_df[stock] - ci_zscore_dict[conf_pct] *std_df[stock]
     upside=daily_return_mean_df[stock] + ci_zscore_dict[conf_pct] *std_df[stock]
     print(f"Using a {conf_pct} confidence interval, "
@@ -175,8 +177,9 @@ def confidence(stock,conf_pct):
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df):
     global MC_fiveyear
-    #weight = np.random.rand(4),
-    #weight /=weight.sum(),
+    """weights = np.random.rand(num_of_stock)
+    weights /=weights.sum()
+    st.table(weights)"""
     MC_fiveyear = MCSimulation(
         portfolio_data = closing_prices_df,
         weights = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1],
@@ -198,7 +201,7 @@ def mc(closing_prices_df):
     MC_sim_dist_plot = MC_fiveyear.plot_distribution()
     MC_sim_dist_plot.get_figure()
     # Save the plot for future use
-    MC_sim_dist_plot.get_figure().savefig("MC_fiveyear_dist_plot.png", bbox_inches="tight")
+    MC_sim_dist_plot.get_figure().savefig("MC_fiveyear_dist_plot.png", bbox_inches="tight", rot =90)
     img1_path = Path("/Users/unicorn/Desktop/stock-selector/MC_fiveyear_dist_plot.png")
     image = Image.open(img1_path)
     st.image(image, caption='Monte Carlo Distribution')
@@ -225,10 +228,4 @@ def main():
     mc(closing_prices_df)
     
 main()  
-
-# Configure a Monte Carlo simulation to forecast five years cumulative returns
-
-
-#mc_simulation(main_df)
-
 
