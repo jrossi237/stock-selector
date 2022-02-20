@@ -40,12 +40,12 @@ def execute(sector, beta, sharpe, roi):
 
     main_df = filter(main_df, beta_low,beta_high,sharpe_low, sharpe_high,roi_low, roi_high)
     
-    get_beta(main_df)
+    get_beta(stocks_df)
 #RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
-    #if len(main_df.columns) >0:
-     #   st.line_chart(main_df)
-    #else:
-     #   st.write("No stocks matched the criteria selected")
+    if len(stocks_df.columns) >0:
+        st.line_chart(stocks_df)
+    else:
+        st.write("No stocks matched the criteria selected")
     
 def get_beta(main_df):
     daily_returns = main_df.pct_change().dropna()
@@ -82,6 +82,10 @@ def get_sector_data(sector):
     """
     #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
     global closing_prices_df
+    global main_df 
+    global stocks_df
+    stocks_df = pd.DataFrame()
+     
     stocks_to_load = sectors_to_tickers[sector]
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
@@ -96,9 +100,10 @@ def get_sector_data(sector):
     main_df.index.name = 'date'
     #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
     closing_prices_df = pd.DataFrame(main_df)
+    stocks_df = main_df.copy(deep=True)
     # the y axis is multi-dementional, and this is flattening it.
 #RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
-    #main_df.columns = [col[0] for col in main_df.columns.values]
+    stocks_df.columns = [col[0] for col in main_df.columns.values]
     #closing_prices_df.columns = pd.MultiIndex.from_product([closing_prices_df.columns, ['closing']])
     return main_df
 
