@@ -249,30 +249,33 @@ def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_h
     # and setting them in the state. From there, it's trying to reload the page
     # with the proper values. 
     if st.session_state['new_sector_load'] == True:
+        # Note - padding these values a little bit to acocunt for float percisssion inaccuracies.
         st.session_state['current_nav_ranges'] = {
-            'beta': (beta_df.min(), beta_df.max()),            
-            'sharpe': (sharpe_df.min(), sharpe_df.max()),
-            'roi': (roi_df.min(), roi_df.max())        
+            'beta': (beta_df.min()-.1, beta_df.max()+.1),            
+            'sharpe': (sharpe_df.min()-.1, sharpe_df.max()+.1),
+            'roi': (roi_df.min()-.1, roi_df.max()+.1)        
         }
         st.experimental_rerun()
 
+    # All of these loops need to round the values to account for float percission inaccuracies.
     for ticker in roi_df.keys():
-        if ticker in main_df and (roi_df[ticker] < roi_low or roi_df[ticker] > roi_high):
-            #st.write(">> dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
+        roi = round(roi_df[ticker], 4)
+        if ticker in main_df and (roi < round(roi_low,4) or roi > round(roi_high,4)):
+            #st.write(">> roi dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in sharpe_df.keys():
         if ticker in main_df and (sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high):
-            #st.write(">> dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
+            #st.write(">> sharpe dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in beta_df.index:
         if ticker not in beta_df:
             break
-        
-        beta = beta_df[ticker]
-        if ticker in main_df and (beta < beta_low or beta > beta_high):
-            #st.write(">> dropping:", ticker, "::",beta, ":::", beta_low, beta_high)
+
+        beta = round(beta_df[ticker],4)
+        if ticker in main_df and (beta < round(beta_low,4) or beta > round(beta_high,4)):
+            #st.write(">> beta dropping:", ticker, "::",beta, ":::", round(beta_low,4), round(beta_high,4))
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     return main_df
