@@ -93,23 +93,25 @@ def execute(sector, beta, sharpe, roi):
         st.line_chart(main_df)
 
         # EH: streamlit dataframe display
-        st.subheader('Daily Closing Price')
-        st.dataframe(main_df.dropna().style.highlight_max(axis=0))
+
+        with st.expander("Daily Closing Price Reference"):
+            st.dataframe(main_df.dropna().style.highlight_max(axis=0))
         # EH: rates display on streamlit
-        st.subheader('Rates')
-        st.dataframe(stats_df.style.highlight_max(axis=0))
+        
+        with st.expander("ROI, Sharpe, STD, Beta Reference"):
+            st.dataframe(stats_df.style.highlight_max(axis=0))
 
         #EH: Option to dispaly daily return chart
         if st.button('Daily Return Chart'): 
             st.line_chart(main_df.pct_change().dropna())
         else:
-            st.write('Click the button to display Daily Return Chart')
+            st.write('')
         
         #EH: Option to dispaly Cumulative return chart
         if st.button('Cumulative Return Chart'):
             st.line_chart(((((main_df.pct_change().dropna()))+1).cumprod()-1).dropna())
         else:
-            st.write('Click the button to display Cumulative Return Chart')
+            st.write('')
         
         #EH:  Option to display heatmap of correlation
         if st.button('Correlation Heatmap'):
@@ -117,7 +119,7 @@ def execute(sector, beta, sharpe, roi):
             sns.heatmap(main_df.corr(), ax=ax)
             st.write(fig)
         else:
-            st.write('Click the button to display Correlation Heatmp.')
+            st.write('')
 
         # EH:  stock selection for MC simulation
         st.subheader('Please select up to 4 stocks for MC simulation.')
@@ -140,8 +142,9 @@ def execute(sector, beta, sharpe, roi):
                     f'Please provide a weight percentage for {each}.',min_value=0,max_value=100)
                 st.write(f'The current {each} weight percentage is ', number)
                 weight_dict[each] = number
-                confidence(each,'99%',main_df,df_std)
-                confidence(each,'95%',main_df,df_std)        
+                with st.expander(f"{each} Return by Confidence Interval Reference"):
+                    confidence(each,'99%',main_df,df_std)
+                    confidence(each,'95%',main_df,df_std)        
         sum_weight_pct = sum(weight_dict.values())
 
         # EH:  error message for weight percent <>100.
