@@ -83,7 +83,7 @@ def execute(sector, beta, sharpe, roi):
 
         # EH: streamlit dataframe display
         st.subheader('Daily Closing Price')
-        st.dataframe(main_df.style.highlight_max(axis=0))
+        st.dataframe(main_df.dropna().style.highlight_max(axis=0))
         # EH: rates display on streamlit
         st.subheader('Rates')
         st.dataframe(stats_df.style.highlight_max(axis=0))
@@ -159,7 +159,7 @@ def get_beta(main_df):
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
     spy_df = alpaca.get_barset(
-        'SPY', start=start, end=end, timeframe='1D', limit=351).df
+        'SPY', start=start, end=end, timeframe='1D', limit=252).df
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
     spy_df_daily_returns = spy_df.pct_change().dropna()
     spy_var = spy_df_daily_returns['close'].var()
@@ -194,7 +194,7 @@ def get_sector_data(sector):
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
   
-    main_df = alpaca.get_barset(stocks_to_load, start=start, end=end, timeframe='1D', limit=352).df
+    main_df = alpaca.get_barset(stocks_to_load, start=start, end=end, timeframe='1D', limit=252).df
        
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
