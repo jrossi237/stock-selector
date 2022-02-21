@@ -13,6 +13,9 @@ from MCForecastTools import MCSimulation
 from numpy import random
 from pathlib import Path
 from PIL import Image
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 # FIXME! Need to move these somewhere else.
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
@@ -70,10 +73,10 @@ def execute(sector, beta, sharpe, roi):
     df_sharpe.columns = ['Sharpe']
     df_std = pd.DataFrame(std_s)
     df_std.columns = ['STD']
-    # df_beta=pd.DataFrame(beta_s)
-    # df_beta.columns=['Beta']
-    stats_df = pd.concat([df_roi, df_sharpe, df_std], axis=1)
-    # df_beta
+    df_beta=pd.DataFrame(beta_s)
+    df_beta.columns=['Beta']
+    stats_df = pd.concat([df_roi, df_sharpe, df_std,df_beta], axis=1)
+    
 
     if len(main_df.columns) > 0:
         st.line_chart(main_df)
@@ -84,6 +87,27 @@ def execute(sector, beta, sharpe, roi):
         # EH: rates display on streamlit
         st.subheader('Rates')
         st.dataframe(stats_df.style.highlight_max(axis=0))
+
+        #EH: Option to dispaly daily return chart
+        if st.button('Daily Return Chart'): 
+            st.line_chart(main_df.pct_change().dropna())
+        else:
+            st.write('Click the button to display Daily Return Chart')
+        
+        #EH: Option to dispaly Cumulative return chart
+        if st.button('Cumulative Return Chart'):
+            st.line_chart(((((main_df.pct_change().dropna()))+1).cumprod()-1).dropna())
+        else:
+            st.write('Click the button to display Cumulative Return Chart')
+        
+        #EH:  Option to display heatmap of correlation
+        if st.button('Correlation Heatmap'):
+            fig, ax = plt.subplots()
+            sns.heatmap(main_df.corr(), ax=ax)
+            st.write(fig)
+        else:
+            st.write('Click the button to display Correlation Heatmp.')
+
         # EH:  stock selection for MC simulation
         st.subheader('Please select up to 4 stocks for MC simulation.')
 
@@ -102,10 +126,11 @@ def execute(sector, beta, sharpe, roi):
         
             for each in selected_stock:
                 number = st.number_input(
-                    f'Please provide a weight percentage for {each}.',min_value=0)
+                    f'Please provide a weight percentage for {each}.',min_value=0,max_value=100)
                 st.write(f'The current {each} weight percentage is ', number)
                 weight_dict[each] = number
-        
+                confidence(each,'99%',main_df,df_std)
+                confidence(each,'95%',main_df,df_std)        
         sum_weight_pct = sum(weight_dict.values())
 
         # EH:  error message for weight percent <>100.
@@ -115,6 +140,12 @@ def execute(sector, beta, sharpe, roi):
         else:
             st.write('Thank you for the input!')
 
+
+
+        if st.button('Run MC Return Simulation'):
+            st.write('Running')
+        else: 
+            st.write('Click button to see MC Return simulation based on your input.')
     else:
         st.write("No stocks matched the criteria selected")
 
@@ -252,26 +283,14 @@ ci_zscore_dict = {'99%': 2.576,
                   '95%': 1.96}
 
 #EH:  define function to print confidence interval and its retuns
-def confidence(stock,conf_pct):
-    #RA set the num_of_stock as a global varaible
-    global num_of_stock
-    downside=daily_return_mean_df[stock] - ci_zscore_dict[conf_pct] *std_df[stock]
-    upside=daily_return_mean_df[stock] + ci_zscore_dict[conf_pct] *std_df[stock]
-
-    print(f"Using a {conf_pct} confidence interval, "
+def confidence(stock, conf_pct,main_df,df_std):
+    downside = main_df[stock].pct_change().dropna().mean() - ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
+    upside = main_df[stock].pct_change().dropna().mean() + ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
+    st.write(f"Using a {conf_pct} confidence interval, "
           f"the {stock} could trade down as much as {(downside * 100): .4f}%, "
           f"and up as much as {(upside * 100): .4f}%.")
 
-    # EH: print CI & its returns for selected tickers
-    num_of_stock = len(selected_tickers)
-    for num in range(num_of_stock):
-        confidence(selected_stock[num], '99%')
-        confidence(selected_stock[num], '95%')
 
-    # the y axis is multi-dementional, and this is flattening it.
-    main_df.columns = [col[0] for col in main_df.columns.values]
-
-    return main_df
 
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df):
