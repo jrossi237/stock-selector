@@ -13,6 +13,9 @@ from MCForecastTools import MCSimulation
 from numpy import random
 from pathlib import Path
 from PIL import Image
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 # FIXME! Need to move these somewhere else.
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
@@ -70,20 +73,41 @@ def execute(sector, beta, sharpe, roi):
     df_sharpe.columns = ['Sharpe']
     df_std = pd.DataFrame(std_s)
     df_std.columns = ['STD']
-    # df_beta=pd.DataFrame(beta_s)
-    # df_beta.columns=['Beta']
-    stats_df = pd.concat([df_roi, df_sharpe, df_std], axis=1)
-    # df_beta
+    df_beta=pd.DataFrame(beta_s)
+    df_beta.columns=['Beta']
+    stats_df = pd.concat([df_roi, df_sharpe, df_std,df_beta], axis=1)
+    
 
     if len(main_df.columns) > 0:
         st.line_chart(main_df)
 
         # EH: streamlit dataframe display
         st.subheader('Daily Closing Price')
-        st.dataframe(main_df.style.highlight_max(axis=0))
+        st.dataframe(main_df.dropna().style.highlight_max(axis=0))
         # EH: rates display on streamlit
         st.subheader('Rates')
         st.dataframe(stats_df.style.highlight_max(axis=0))
+
+        #EH: Option to dispaly daily return chart
+        if st.button('Daily Return Chart'): 
+            st.line_chart(main_df.pct_change().dropna())
+        else:
+            st.write('Click the button to display Daily Return Chart')
+        
+        #EH: Option to dispaly Cumulative return chart
+        if st.button('Cumulative Return Chart'):
+            st.line_chart(((((main_df.pct_change().dropna()))+1).cumprod()-1).dropna())
+        else:
+            st.write('Click the button to display Cumulative Return Chart')
+        
+        #EH:  Option to display heatmap of correlation
+        if st.button('Correlation Heatmap'):
+            fig, ax = plt.subplots()
+            sns.heatmap(main_df.corr(), ax=ax)
+            st.write(fig)
+        else:
+            st.write('Click the button to display Correlation Heatmp.')
+
         # EH:  stock selection for MC simulation
         st.subheader('Please select up to 4 stocks for MC simulation.')
 
@@ -102,10 +126,11 @@ def execute(sector, beta, sharpe, roi):
         
             for each in selected_stock:
                 number = st.number_input(
-                    f'Please provide a weight percentage for {each}.',min_value=0)
+                    f'Please provide a weight percentage for {each}.',min_value=0,max_value=100)
                 st.write(f'The current {each} weight percentage is ', number)
                 weight_dict[each] = number
-        
+                confidence(each,'99%',main_df,df_std)
+                confidence(each,'95%',main_df,df_std)        
         sum_weight_pct = sum(weight_dict.values())
 
         # EH:  error message for weight percent <>100.
@@ -115,6 +140,12 @@ def execute(sector, beta, sharpe, roi):
         else:
             st.write('Thank you for the input!')
 
+
+
+        if st.button('Run MC Return Simulation'):
+            st.write('Running')
+        else: 
+            st.write('Click button to see MC Return simulation based on your input.')
     else:
         st.write("No stocks matched the criteria selected")
 
@@ -128,7 +159,7 @@ def get_beta(main_df):
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
     spy_df = alpaca.get_barset(
-        'SPY', start=start, end=end, timeframe='1D', limit=351).df
+        'SPY', start=start, end=end, timeframe='1D', limit=252).df
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
     spy_df_daily_returns = spy_df.pct_change().dropna()
     spy_var = spy_df_daily_returns['close'].var()
@@ -163,7 +194,7 @@ def get_sector_data(sector):
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
   
-    main_df = alpaca.get_barset(stocks_to_load, start=start, end=end, timeframe='1D', limit=352).df
+    main_df = alpaca.get_barset(stocks_to_load, start=start, end=end, timeframe='1D', limit=252).df
        
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
@@ -218,30 +249,33 @@ def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_h
     # and setting them in the state. From there, it's trying to reload the page
     # with the proper values. 
     if st.session_state['new_sector_load'] == True:
+        # Note - padding these values a little bit to acocunt for float percisssion inaccuracies.
         st.session_state['current_nav_ranges'] = {
-            'beta': (beta_df.min(), beta_df.max()),            
-            'sharpe': (sharpe_df.min(), sharpe_df.max()),
-            'roi': (roi_df.min(), roi_df.max())        
+            'beta': (beta_df.min()-.1, beta_df.max()+.1),            
+            'sharpe': (sharpe_df.min()-.1, sharpe_df.max()+.1),
+            'roi': (roi_df.min()-.1, roi_df.max()+.1)        
         }
         st.experimental_rerun()
 
+    # All of these loops need to round the values to account for float percission inaccuracies.
     for ticker in roi_df.keys():
-        if ticker in main_df and (roi_df[ticker] < roi_low or roi_df[ticker] > roi_high):
-            #st.write(">> dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
+        roi = round(roi_df[ticker], 4)
+        if ticker in main_df and (roi < round(roi_low,4) or roi > round(roi_high,4)):
+            #st.write(">> roi dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in sharpe_df.keys():
         if ticker in main_df and (sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high):
-            #st.write(">> dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
+            #st.write(">> sharpe dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     for ticker in beta_df.index:
         if ticker not in beta_df:
             break
-        
-        beta = beta_df[ticker]
-        if ticker in main_df and (beta < beta_low or beta > beta_high):
-            #st.write(">> dropping:", ticker, "::",beta, ":::", beta_low, beta_high)
+
+        beta = round(beta_df[ticker],4)
+        if ticker in main_df and (beta < round(beta_low,4) or beta > round(beta_high,4)):
+            #st.write(">> beta dropping:", ticker, "::",beta, ":::", round(beta_low,4), round(beta_high,4))
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     return main_df
@@ -252,26 +286,14 @@ ci_zscore_dict = {'99%': 2.576,
                   '95%': 1.96}
 
 #EH:  define function to print confidence interval and its retuns
-def confidence(stock,conf_pct):
-    #RA set the num_of_stock as a global varaible
-    global num_of_stock
-    downside=daily_return_mean_df[stock] - ci_zscore_dict[conf_pct] *std_df[stock]
-    upside=daily_return_mean_df[stock] + ci_zscore_dict[conf_pct] *std_df[stock]
-
-    print(f"Using a {conf_pct} confidence interval, "
+def confidence(stock, conf_pct,main_df,df_std):
+    downside = main_df[stock].pct_change().dropna().mean() - ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
+    upside = main_df[stock].pct_change().dropna().mean() + ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
+    st.write(f"Using a {conf_pct} confidence interval, "
           f"the {stock} could trade down as much as {(downside * 100): .4f}%, "
           f"and up as much as {(upside * 100): .4f}%.")
 
-    # EH: print CI & its returns for selected tickers
-    num_of_stock = len(selected_tickers)
-    for num in range(num_of_stock):
-        confidence(selected_stock[num], '99%')
-        confidence(selected_stock[num], '95%')
 
-    # the y axis is multi-dementional, and this is flattening it.
-    main_df.columns = [col[0] for col in main_df.columns.values]
-
-    return main_df
 
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df):
@@ -340,5 +362,4 @@ def main():
     #mc(closing_prices_df)
     
 main()  
-
 
