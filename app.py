@@ -195,7 +195,7 @@ def get_sector_data(sector):
     This function is responsible for loading all of the stock data within a sector.
     """
     #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
-    #global closing_prices_df
+    global closing_prices_df
     #global main_df 
     #global stocks_df
     stocks_df = pd.DataFrame()
@@ -210,11 +210,10 @@ def get_sector_data(sector):
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
 
 
-    #RA: Removing Timestamp
+    #RA: Removing Timestamp and created copy of the main_df
     main_df.index = main_df.index.date   
     main_df.index.name = 'date'
     #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
-    #mc_df = pd.DataFrame(main_df)
     mc_df = main_df.copy(deep=True)
 
     # the y axis is multi-dementional, and this is flattening it.
@@ -304,24 +303,36 @@ def confidence(stock, conf_pct,main_df,df_std):
           f"and up as much as {(upside * 100): .4f}%.")
 
 
-
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df, tickers_to_weights):
-    global MC_fiveyear
 
-    weight = np.random.rand(10)
-    weight /=weight.sum()
+    rel_tickers = list(tickers_to_weights.keys())
+    rel_weights = [x/100 for x in tickers_to_weights.values()]    
 
+    # FIXME!!!! We really want to be using this, but this is only returning a 1 demension array, but
+    # the MC simulator requires 2.
+    rel_closing_prices_df = closing_prices_df.filter(items = rel_tickers)
+
+    # HACK!!! we should be using the line above, but i have no idea how to convert that into the proper
+    # format
+    start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
+    end = pd.Timestamp.now().isoformat()
+    rel_closing_prices_df = alpaca.get_barset(rel_tickers, start=start, end=end, timeframe='1D', limit=252).df
+    rel_closing_prices_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
+    rel_closing_prices_df.index = rel_closing_prices_df.index.date   
+    rel_closing_prices_df.index.name = 'date'
+    # End hack
+    
     MC_fiveyear = MCSimulation(
-        portfolio_data = closing_prices_df,
-        weights = weight,
+        portfolio_data = rel_closing_prices_df,
+        weights = rel_weights,
         num_simulation = 500,
         num_trading_days = 500
     )
-    #MC_fiveyear.portfolio_data
+
     MC_fiveyear.calc_cumulative_return()
     # Plot simulation outcomes
-    #st.write(MC_fiveyear.portfolio_data)
+
     MC_sim_line_plot = MC_fiveyear.plot_simulation()
     MC_sim_line_plot.get_figure()
     # Save the plot for future use
@@ -332,18 +343,16 @@ def mc(closing_prices_df, tickers_to_weights):
     # Plot probability distribution and confidence intervals
     MC_sim_dist_plot = MC_fiveyear.plot_distribution()
     MC_sim_dist_plot.get_figure()
-
     # Save the plot for future use
     MC_sim_dist_plot.get_figure().savefig("MC_fiveyear_dist_plot.png", bbox_inches="tight", rot =90)
     img1_path = Path("./MC_fiveyear_dist_plot.png")
     image = Image.open(img1_path)
     st.image(image, caption='Monte Carlo Distribution')
     MC_summary_statistics = MC_fiveyear.summarize_cumulative_return()
-    st.table(MC_summary_statistics) 
-    #return MC_fiveyear
+    st.table(MC_summary_statistics)
+    
 
 def main():
-
     current_nav_ranges = st.session_state['current_nav_ranges']
     
     st.write()
@@ -368,10 +377,6 @@ def main():
                             (current_nav_ranges['roi'][0],
                              current_nav_ranges['roi'][1]))    
     execute(sector, beta, sharpe, roi)
-    #RA Montecarlo simulation
-    #print_closing_prices(closing_prices_df)
-    #RA Montecarlo simulation
-    #mc(closing_prices_df)
     
 main()  
 
