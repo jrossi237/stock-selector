@@ -15,6 +15,7 @@ from pathlib import Path
 from PIL import Image
 import seaborn as sns
 import matplotlib.pyplot as plt
+from services.AlpacaService import AlpacaService
 
 # The wide option will take up the entire screen.
 st.set_page_config(page_title="Stock Selector App",layout="wide")
@@ -30,6 +31,8 @@ alpaca_key = 'PKQGP0BR4BOGDYH6946H'
 alpaca_secret = 'dNcBOKDiV3Y9mrAj81rCkPT2uysP6my2ZNz6bBHy'
 
 alpaca = tradeapi.REST(alpaca_key, alpaca_secret, api_version='v2')
+
+alpacaService = AlpacaService(alpaca_key, alpaca_secret)
 
 sectors_to_tickers = {}
 with open("sp_500_sectors_to_ticker.json") as json_file:
@@ -166,8 +169,11 @@ def get_beta(main_df):
     # Get SPY Dataframe
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
-    spy_df = alpaca.get_barset(
-        'SPY', start=start, end=end, timeframe='1D', limit=252).df
+    
+    #spy_df = alpaca.get_barset(
+    #    'SPY', start=start, end=end, timeframe='1D', limit=252).df
+    spy_df = alpacaService.getLatestYearsData('SPY')
+    
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
     spy_df_daily_returns = spy_df.pct_change().dropna()
     spy_var = spy_df_daily_returns['close'].var()
@@ -201,9 +207,10 @@ def get_sector_data(sector):
     stocks_to_load = sectors_to_tickers[sector]
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
-  
-    main_df = alpaca.get_barset(stocks_to_load, start=start, end=end, timeframe='1D', limit=252).df
-       
+ 
+    main_df = alpacaService.getLatestYearsData(stocks_to_load)
+
+    
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
 
