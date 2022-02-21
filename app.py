@@ -193,7 +193,7 @@ def get_sector_data(sector):
     This function is responsible for loading all of the stock data within a sector.
     """
     #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
-    #global closing_prices_df
+    global closing_prices_df
     #global main_df 
     #global stocks_df
     stocks_df = pd.DataFrame()
@@ -208,11 +208,10 @@ def get_sector_data(sector):
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
 
 
-    #RA: Removing Timestamp
+    #RA: Removing Timestamp and created copy of the main_df
     main_df.index = main_df.index.date   
     main_df.index.name = 'date'
-    #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
-    closing_prices_df = pd.DataFrame(main_df)
+    closing_prices_df = main_df.copy(deep=True)
     stocks_df = main_df.copy(deep=True)
 
     # the y axis is multi-dementional, and this is flattening it.
@@ -306,11 +305,15 @@ def confidence(stock, conf_pct,main_df,df_std):
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def mc(closing_prices_df):
     global MC_fiveyear
+    rel_tickers = list(weight_dict.keys())
+    rel_weights = list(weight_dict.values())
+    rel_closing_prices_df = closing_prices_df.filter(items = rel_tickers)
+    rel_len = len(weight_dict)
     weight = np.random.rand(10)
-    weight /=weight.sum()
+    rel_weights /=rel_weights.sum()
     MC_fiveyear = MCSimulation(
-        portfolio_data = closing_prices_df,
-        weights = weight,
+        portfolio_data = rel_closing_prices_df,
+        weights = rel_weights,
         num_simulation = 500,
         num_trading_days = 500
     )
