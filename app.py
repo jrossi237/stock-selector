@@ -16,6 +16,14 @@ from PIL import Image
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# The wide option will take up the entire screen.
+st.set_page_config(page_title="Stock Selector App",layout="wide")
+# this is change the page so that it will take a max with of 1200px, instead
+# of the whole screen.
+st.markdown(
+        f"""<style>.main .block-container{{ max-width: 1200px }} </style> """,
+        unsafe_allow_html=True,
+)
 
 # FIXME! Need to move these somewhere else.
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
