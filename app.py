@@ -172,8 +172,6 @@ def get_beta(main_df):
     start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
     end = pd.Timestamp.now().isoformat()
     
-    #spy_df = alpaca.get_barset(
-    #    'SPY', start=start, end=end, timeframe='1D', limit=252).df
     spy_df = alpacaService.getLatestYearsData('SPY')
     
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
@@ -322,9 +320,7 @@ def mc(closing_prices_df, tickers_to_weights):
 
     # HACK!!! we should be using the line above, but i have no idea how to convert that into the proper
     # format
-    start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
-    end = pd.Timestamp.now().isoformat()
-    rel_closing_prices_df = alpaca.get_barset(rel_tickers, start=start, end=end, timeframe='1D', limit=252).df
+    rel_closing_prices_df = alpacaService.getLatestYearsData(rel_tickers)    
     rel_closing_prices_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
     rel_closing_prices_df.index = rel_closing_prices_df.index.date   
     rel_closing_prices_df.index.name = 'date'
