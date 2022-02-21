@@ -169,9 +169,6 @@ def get_beta(main_df):
     # st.write(daily_returns)
 
     # Get SPY Dataframe
-    start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
-    end = pd.Timestamp.now().isoformat()
-    
     spy_df = alpacaService.getLatestYearsData('SPY')
     
     spy_df = spy_df['SPY'].drop(columns=['open', 'high', 'low', 'volume'])
@@ -198,38 +195,27 @@ def get_sector_data(sector):
     """
     This function is responsible for loading all of the stock data within a sector.
     """
-    #RA: Inserted global varaible (as we will require multi-demensional df for MC analysis
-    global closing_prices_df
-    #global main_df 
-    #global stocks_df
     stocks_df = pd.DataFrame()
      
     stocks_to_load = sectors_to_tickers[sector]
-    start = (pd.Timestamp.now() - pd.Timedelta(days=365)).isoformat()
-    end = pd.Timestamp.now().isoformat()
- 
     main_df = alpacaService.getLatestYearsData(stocks_to_load)
-
     
     #dropping unused columns
     main_df.drop(columns=['open','high','low','volume'], axis=1, level=1,inplace=True)
 
-
     #RA: Removing Timestamp and created copy of the main_df
     main_df.index = main_df.index.date   
     main_df.index.name = 'date'
-    #RA: Inserted global varaible & created a copy of main_df(as we will require multi-demensional df for MC analysis
+
+    # need to keep an unflattend copy for the mc_simulator
     mc_df = main_df.copy(deep=True)
 
     # the y axis is multi-dementional, and this is flattening it.
-#RA: Temporarily commented to facilitate montecarlo simulation - need to discuss alternatives to make available multilevel indexes
     main_df.columns = [col[0] for col in main_df.columns.values]
     #closing_prices_df.columns = pd.MultiIndex.from_product([closing_prices_df.columns, ['closing']])
 
     return main_df, mc_df
 
-def print_closing_prices(closing_prices_df):
-    st.write(closing_prices_df)
     
 def cal_ratio(close_price_df):
     # EH: daily rate
