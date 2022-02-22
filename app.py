@@ -404,9 +404,11 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     MC_sim_dist_plot.get_figure().savefig("MC_fiveyear_dist_plot.png", bbox_inches="tight", rot =90)
     img1_path = Path("./MC_fiveyear_dist_plot.png")
     image = Image.open(img1_path)
-    st.image(image, caption='Monte Carlo Distribution')
+    #st.image(image, caption='Monte Carlo Distribution')
     MC_summary_statistics = MC_fiveyear.summarize_cumulative_return()
+    st.write(f"Summary Statistics of MC Simulation:")
     st.table(MC_summary_statistics)
+    st.write(f"The cumulative return for the selected portfolio based on MC Simulation could be between {(MC_summary_statistics['95% CI Lower']):.2f}% and {(MC_summary_statistics['95% CI Upper']):.2f}% with a 95% probability")
     
 
 def main():
