@@ -1,16 +1,9 @@
-from ast import And
 import streamlit as st
-import os
-import requests
 import pandas as pd
 import hvplot.pandas
-import panel as pn
 import json
-import numpy as np
 import param
-import alpaca_trade_api as tradeapi
 from MCForecastTools import MCSimulation
-from numpy import random
 from pathlib import Path
 from PIL import Image
 import seaborn as sns
@@ -30,16 +23,17 @@ st.markdown(
 alpaca_key = 'PKQGP0BR4BOGDYH6946H'
 alpaca_secret = 'dNcBOKDiV3Y9mrAj81rCkPT2uysP6my2ZNz6bBHy'
 
-alpaca = tradeapi.REST(alpaca_key, alpaca_secret, api_version='v2')
-
 alpacaService = AlpacaService(alpaca_key, alpaca_secret)
 
+# Loading some base var used throughout the code.
 sectors_to_tickers = {}
 with open("sp_500_sectors_to_ticker.json") as json_file:
     sectors_to_tickers = json.load(json_file)
 sectors = list(sectors_to_tickers.keys())
 
 if 'last_sector_loaded' not in st.session_state:
+    # This is initializing the state.
+    
     st.session_state['last_sector_loaded'] = '-'
     st.session_state['new_sector_load'] = False
     # this is setting some default ranges...
@@ -50,33 +44,36 @@ if 'last_sector_loaded' not in st.session_state:
     }
 
 
-def execute(sector, beta, sharpe, roi):
+def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
     """
     This is the main data gathering for this app. It will call other functions
     to assemble a main dataframe which can be used in different ways.
+
+    Args:
+        sector: the name of the sector to load.
+        beta_ranges: the high and low beta range to filter upon
+        sharpe_ranges: the high and low sharpe range to filter upon
+        roi_ranges: the high and low roi to filter upon
+    Return:
+        None
     """
 
-    # This is trying to detect if a new sector is loaded marking it in the session if
-    # is is.
+    # trying to detect if a new sector is loaded marking it in the session if is is.
     if sector == st.session_state['last_sector_loaded']:
         st.session_state['new_sector_load'] = False
     else:
         st.session_state['last_sector_loaded'] = sector
         st.session_state['new_sector_load'] = True
 
-    # unpacking the lows and highs into variables that can be used more easliy.
-    beta_low, beta_high = beta
-    sharpe_low, sharpe_high = sharpe
-    roi_low, roi_high = roi
-
     main_df, mc_df = get_sector_data(sector)
 
-    main_df = filter(main_df, beta_low, beta_high, sharpe_low,
-                     sharpe_high, roi_low, roi_high)
-
     # EH:  call series data
-    roi_s, sharpe_s, std_s = cal_ratio(main_df)
+    roi_s, sharpe_s, std_s = calculate_ratios(main_df)
     beta_s = get_beta(main_df)
+
+    # Filtering the main df
+    main_df = filter(main_df, beta_ranges, sharpe_ranges, roi_ranges, beta_s, sharpe_s, roi_s)    
+    
     # EH:  stats dataframe for streamlit display
     df_roi = pd.DataFrame(roi_s)
     df_roi.columns = ['ROI']
@@ -143,12 +140,12 @@ def execute(sector, beta, sharpe, roi):
                 st.write(f'The current {each} weight percentage is ', number)
                 weight_dict[each] = number
                 with st.expander(f"{each} Return by Confidence Interval Reference"):
-                    confidence(each,'99%',main_df,df_std)
-                    confidence(each,'95%',main_df,df_std)        
+                    print_confidence(each,'99%',main_df,df_std)
+                    print_confidence(each,'95%',main_df,df_std)        
         sum_weight_pct = sum(weight_dict.values())
 
         # EH:  error message for weight percent <>100.
-        if sum_weight_pct != 100:
+        if len(weight_dict.keys()) > 0 and sum_weight_pct != 100:
             st.error(
                     'Invalid weight percentage input.  The sum of weight percentage should be 100.')
         else:
@@ -157,8 +154,8 @@ def execute(sector, beta, sharpe, roi):
 
 
         if st.button('Run MC Return Simulation'):
-            mc(mc_df, weight_dict)
-
+            with st.spinner('Exectuting Monte Carlo Simulator...'):
+                run_monte_carlo(mc_df, weight_dict)
             
         else: 
             st.write('Click button to see MC Return simulation based on your input.')
@@ -167,6 +164,17 @@ def execute(sector, beta, sharpe, roi):
 
 
 def get_beta(main_df):
+    """
+    Calculates the beta based on the main df that has been loaded.
+
+    Args:
+        main_df: The df to load everythign from.
+
+    Returns:
+        beta_s: the series which contains beta info
+
+    """
+    
     daily_returns = main_df.pct_change().dropna()
     daily_returns.index = pd.to_datetime(daily_returns.index)
     # st.write(daily_returns)
@@ -184,19 +192,26 @@ def get_beta(main_df):
     tickers_list = main_df.keys()
     beta_list = []
 
-    beta_df = pd.Series()    
+    beta_s = pd.Series()    
     for ticker in tickers_list:
         cov = daily_returns[ticker].cov(spy_df_daily_returns['close'])
         beta = (cov/spy_var)
-        beta_df.loc[ticker] = beta
+        beta_s.loc[ticker] = beta
 
-    return beta_df
-
-
+    return beta_s
 
 def get_sector_data(sector):
     """
-    This function is responsible for loading all of the stock data within a sector.
+    Loads the stock data for a given sector
+
+    Args:
+        sector: Name of the sector to load
+
+    Returns:
+        main_df: the main df which has been flattened.
+        mc_df: the main df which has not been flatted. the mc similator needs an
+            unflatted version of it.
+
     """
     stocks_df = pd.DataFrame()
      
@@ -220,33 +235,62 @@ def get_sector_data(sector):
     return main_df, mc_df
 
     
-def cal_ratio(close_price_df):
+def calculate_ratios(close_price_df):
+    """
+    Calculates the sharpe, roi, and std based on the main df that has been loaded.
+
+    Args:
+        close_price_df: The df that contains the close prices
+
+    Returns:
+        roi_s: series that contains all of the roi info
+        sharpe_s: series that contains all of the sharpe info
+        std_s: series that contains the standard deviations
+    """
+    
     # EH: daily rate
     daily_return_df = close_price_df.pct_change().dropna()
     # EH: cumulative return
     cumulative_return_df = ((daily_return_df+1).cumprod()-1).dropna()
     # EH:  get latest cumulative return value for filter purpose
-    roi_df = cumulative_return_df.iloc[-1]
+    roi_s = cumulative_return_df.iloc[-1]
     #EH:  daily_return_mean_df
     daily_return_mean_df = daily_return_df.mean()
     #EH: std
-    std_df = daily_return_df.std()
+    std_s = daily_return_df.std()
     #EH: ROI
     # annualized_return
     trade_days = 252
     annualized_return = daily_return_mean_df*trade_days
     # EH: annualized std
-    annualized_std = std_df * (trade_days ** 1/2)
+    annualized_std = std_s * (trade_days ** 1/2)
     # EH: sharpe ratio
-    sharpe_df = annualized_return/annualized_std
+    sharpe_s = annualized_return/annualized_std
 
-    return roi_df, sharpe_df, std_df
+    return roi_s, sharpe_s, std_s
 
 
-# EH:  filter for sharpe and roi
-def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_high):
-    roi_df, sharpe_df, std_df = cal_ratio(main_df)
-    beta_df = get_beta(main_df)    
+def filter(main_df, beta_ranges, sharpe_ranges, roi_ranges, beta_s, sharpe_s, roi_s):
+    """
+    Filters the main_df based up the range selectors on the nav bar.
+
+    Args:
+        main_df: The main df that contains the close prices
+        beta_ranges: a tuple that contains the high and low beta ranges
+        sharpe_ranges: a tuple that contains the high and low sharpe ranges
+        roi_ranges: a tuple that contains the high and low roi ranges
+        beta_s: The beta series to use
+        sharpe_s: The sharpe serioes to user
+        roi_s: the roi series to use
+
+    Returns:
+        main_df: A filtered version of the main df.
+    """
+    
+    # unpacking the lows and highs into variables that can be used more easliy.
+    beta_low, beta_high = beta_ranges
+    sharpe_low, sharpe_high = sharpe_ranges
+    roi_low, roi_high = roi_ranges
 
     # When a new sector is loaded, this is taking the highs and lows for the ranges
     # and setting them in the state. From there, it's trying to reload the page
@@ -254,42 +298,53 @@ def filter(main_df, beta_low, beta_high, sharpe_low, sharpe_high, roi_low, roi_h
     if st.session_state['new_sector_load'] == True:
         # Note - padding these values a little bit to acocunt for float percisssion inaccuracies.
         st.session_state['current_nav_ranges'] = {
-            'beta': (beta_df.min()-.1, beta_df.max()+.1),            
-            'sharpe': (sharpe_df.min()-.1, sharpe_df.max()+.1),
-            'roi': (roi_df.min()-.1, roi_df.max()+.1)        
+            'beta': (beta_s.min()-.1, beta_s.max()+.1),            
+            'sharpe': (sharpe_s.min()-.1, sharpe_s.max()+.1),
+            'roi': (roi_s.min()-.1, roi_s.max()+.1)        
         }
         st.experimental_rerun()
 
     # All of these loops need to round the values to account for float percission inaccuracies.
-    for ticker in roi_df.keys():
-        roi = round(roi_df[ticker], 4)
+    for ticker in roi_s.keys():
+        roi = round(roi_s[ticker], 4)
         if ticker in main_df and (roi < round(roi_low,4) or roi > round(roi_high,4)):
             #st.write(">> roi dropping:", ticker, "::",roi_df[ticker], ":::", roi_low, roi_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
-    for ticker in sharpe_df.keys():
-        if ticker in main_df and (sharpe_df[ticker] < sharpe_low or sharpe_df[ticker] > sharpe_high):
+    for ticker in sharpe_s.keys():
+        if ticker in main_df and (sharpe_s[ticker] < sharpe_low or sharpe_s[ticker] > sharpe_high):
             #st.write(">> sharpe dropping:", ticker, "::",sharpe_df[ticker], ":::", sharpe_low, sharpe_high)
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
-    for ticker in beta_df.index:
-        if ticker not in beta_df:
+    for ticker in beta_s.index:
+        if ticker not in beta_s:
             break
 
-        beta = round(beta_df[ticker],4)
+        beta = round(beta_s[ticker],4)
         if ticker in main_df and (beta < round(beta_low,4) or beta > round(beta_high,4)):
             #st.write(">> beta dropping:", ticker, "::",beta, ":::", round(beta_low,4), round(beta_high,4))
             main_df.drop(columns=[ticker], axis=1, inplace=True)
 
     return main_df
 
-
-# EH:  caluclate confidence interval
-ci_zscore_dict = {'99%': 2.576,
-                  '95%': 1.96}
-
 #EH:  define function to print confidence interval and its retuns
-def confidence(stock, conf_pct,main_df,df_std):
+def print_confidence(stock, conf_pct, main_df, df_std):
+    """
+    Calculates and prints out a message containing the confidence levels.
+
+    Args:
+        stock: stock ticker to use
+        conf_pct: Confidence percent to use
+        main_df: The df that contains the stock info
+        df_std: the df which contains standard deviation info
+
+    Returns:
+        None
+    """
+    
+    ci_zscore_dict = {'99%': 2.576,
+                      '95%': 1.96}
+    
     downside = main_df[stock].pct_change().dropna().mean() - ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
     upside = main_df[stock].pct_change().dropna().mean() + ci_zscore_dict[conf_pct] * df_std.loc[stock][0]
     st.write(f"Using a {conf_pct} confidence interval, "
@@ -298,7 +353,17 @@ def confidence(stock, conf_pct,main_df,df_std):
 
 
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
-def mc(closing_prices_df, tickers_to_weights):
+def run_monte_carlo(closing_prices_df, tickers_to_weights):
+    """
+    Run the monte carlo simulator on selected stocks
+
+    Args:
+        closing_prices_df: A dataframe of closing prices
+        tickers_to_weights: a dict of tickers to their weights
+
+    Returns:
+        None
+    """
 
     rel_tickers = list(tickers_to_weights.keys())
     rel_weights = [x/100 for x in tickers_to_weights.values()]    
@@ -345,6 +410,13 @@ def mc(closing_prices_df, tickers_to_weights):
     
 
 def main():
+    """
+    Main function of this app. Sets up the side bar and then exectues the rest of the code.
+
+    Returns:
+        None
+    """
+    
     current_nav_ranges = st.session_state['current_nav_ranges']
     
     st.write()
