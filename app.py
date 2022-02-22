@@ -366,10 +366,14 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     """
 
     rel_tickers = list(tickers_to_weights.keys())
-    rel_weights = [x/100 for x in tickers_to_weights.values()]    
+    #rel_weights = [x/100 for x in tickers_to_weights.values()]
+    relative_weights = tickers_to_weights.values()
+    rel_weights = []
+    for x in relative_weights:
+        rel_weights.append(x/sum(relative_weights))
 
     # FIXME!!!! We really want to be using this, but this is only returning a 1 demension array, but
-    # the MC simulator requires 2.
+    # the MC simuator requires 2.
     rel_closing_prices_df = closing_prices_df.filter(items = rel_tickers)
 
     # HACK!!! we should be using the line above, but i have no idea how to convert that into the proper
