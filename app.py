@@ -379,12 +379,13 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     rel_closing_prices_df.index = rel_closing_prices_df.index.date   
     rel_closing_prices_df.index.name = 'date'
     # End hack
-    
+    number_of_simulations = 500
+    number_of_trading_days = 252*5
     MC_fiveyear = MCSimulation(
         portfolio_data = rel_closing_prices_df,
         weights = rel_weights,
-        num_simulation = 500,
-        num_trading_days = 500
+        num_simulation = number_of_simulations,
+        num_trading_days = number_of_trading_days
     )
 
     MC_fiveyear.calc_cumulative_return()
@@ -408,7 +409,7 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     MC_summary_statistics = MC_fiveyear.summarize_cumulative_return()
     st.write(f"Summary Statistics of MC Simulation:")
     st.table(MC_summary_statistics)
-    st.write(f"The cumulative return for the selected portfolio based on MC Simulation could be between {(MC_summary_statistics['95% CI Lower']):.2f}% and {(MC_summary_statistics['95% CI Upper']):.2f}% with a 95% probability")
+    st.write(f"The cumulative return based on MC Simulation for the selected portfolio on {number_of_simulations} simulations over {number_of_trading_days} days could be between {(MC_summary_statistics['95% CI Lower']):.2f}% and {(MC_summary_statistics['95% CI Upper']):.2f}%, with a 95% probability")
     
 
 def main():
