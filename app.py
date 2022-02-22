@@ -126,6 +126,8 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
         selected_stock = st.multiselect("Tickers:", list(main_df.keys()))
 
         # EH: get weight% for MC simulation of 4 stocks
+
+        disable_mc_button = True
         weight_dict = {}
         if len(selected_stock) > 4:
             st.error(
@@ -150,10 +152,10 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
                     'Invalid weight percentage input.  The sum of weight percentage should be 100.')
         else:
             st.write('Thank you for the input!')
+            disable_mc_button = False
 
 
-
-        if st.button('Run MC Return Simulation'):
+        if st.button('Run MC Return Simulation', disabled=disable_mc_button):
             with st.spinner('Exectuting Monte Carlo Simulator...'):
                 run_monte_carlo(mc_df, weight_dict)
             
