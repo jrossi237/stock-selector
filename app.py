@@ -123,7 +123,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
 
         # stock selection widget to get weight%
         # multi_select_stock = pn.widgets.MultiSelect(name='Stock Selections', value=[list(df_roi.index)[0]],options=list(df_roi.index), size=10)
-        selected_stock = st.multiselect("Tickers:", list(df_roi.index))
+        selected_stock = st.multiselect("Tickers:", list(main_df.keys()))
 
         # EH: get weight% for MC simulation of 4 stocks
         weight_dict = {}
