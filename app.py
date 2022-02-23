@@ -156,7 +156,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
 
 
         if st.button('Run MC Return Simulation', disabled=disable_mc_button):
-            with st.spinner('Exectuting Monte Carlo Simulator...'):
+            with st.spinner('Running Monte Carlo Simulator...'):
                 run_monte_carlo(mc_df, weight_dict)
             
         else: 
