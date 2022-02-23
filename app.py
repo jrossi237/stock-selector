@@ -87,6 +87,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
     
 
     if len(main_df.columns) > 0:
+        st.subheader('1-Year Closing Price')
         st.line_chart(main_df)
 
         # EH: streamlit dataframe display
