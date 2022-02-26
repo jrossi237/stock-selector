@@ -129,6 +129,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
         # EH: get weight% for MC simulation of 4 stocks
 
         disable_mc_button = True
+
         weight_dict = {}
         if len(selected_stock) > 4:
             st.error(
@@ -151,7 +152,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
         if len(weight_dict.keys()) > 0 and sum_weight_pct != 100:
             st.error(
                     'Invalid weight percentage input.  The sum of weight percentage should be 100.')
-        else:
+        elif sum_weight_pct == 100:
             st.write('Thank you for the input!')
             disable_mc_button = False
 
@@ -163,14 +164,17 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
         else: 
             st.write('Click button to see MC Return simulation based on your input.')
         
-    
-        if st.button('Move ahead with Investment'):
+
+        if disable_mc_button == False:
+            st.write()
+            st.write()
+            st.write("Move ahead with investment")       
+
             investment1_amount = st.text_input("Enter your investment amount", 1000)
             investment_amount = int(investment1_amount)
-            st.write(investment_amount)
-            run_alpaca_orders(weight_dict, investment_amount)
-        else:
-            st.write('Click button if you would like to moveahead with the Investment.') 
+
+            if st.button('Purchase Stocks'):            
+                purchase_stocks(weight_dict, investment_amount)
     
     else:
         st.write("No stocks matched the criteria selected")
@@ -431,7 +435,7 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     st.table(MC_summary_statistics)
     st.write(f"The cumulative return based on MC Simulation for the selected portfolio on {number_of_simulations} simulations over {number_of_trading_days} days could be between {(MC_summary_statistics['95% CI Lower']):.2f}% and {(MC_summary_statistics['95% CI Upper']):.2f}%, with a 95% probability")
 
-def run_alpaca_orders(tickers_to_weights, investment_amount):
+def purchase_stocks(tickers_to_weights, investment_amount):
     amount_to_invest = []
     relative_weights = list(tickers_to_weights.values())
     rel_weights = []
@@ -441,8 +445,9 @@ def run_alpaca_orders(tickers_to_weights, investment_amount):
     for item in rel_weights:
         amount_to_invest.append((item*investment_amount))
     stock_investment = dict(zip(rel_tickers, amount_to_invest))
-    st.write(stock_investment)
-    alpacaService.buystock(stock_investment)
+
+    alpacaService.buyStock(stock_investment)
+    st.write("Your stocks have been purchased.")    
    
             
 def main():
@@ -476,8 +481,6 @@ def main():
                             current_nav_ranges['roi'][1],
                             (current_nav_ranges['roi'][0],
                              current_nav_ranges['roi'][1]))  
-    #investment1_amount = st.sidebar.slider("Pick a number", 0, 100000)
-    #investment_amount = investment1_amount(Capt)
         
     execute(sector, beta, sharpe, roi)
         
