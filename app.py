@@ -67,12 +67,12 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
 
     main_df, mc_df = get_sector_data(sector)
 
-    # EH:  call series data
+    # Filtering the main df
+    main_df = filter(main_df, beta_ranges, sharpe_ranges, roi_ranges)    
+
+    # EH:  call series data    
     roi_s, sharpe_s, std_s = calculate_ratios(main_df)
     beta_s = get_beta(main_df)
-
-    # Filtering the main df
-    main_df = filter(main_df, beta_ranges, sharpe_ranges, roi_ranges, beta_s, sharpe_s, roi_s)    
     
     # EH:  stats dataframe for streamlit display
     df_roi = pd.DataFrame(roi_s)
@@ -87,6 +87,7 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
     
 
     if len(main_df.columns) > 0:
+        st.subheader('1-Year Closing Price')
         st.line_chart(main_df)
 
         # EH: streamlit dataframe display
@@ -123,9 +124,11 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
 
         # stock selection widget to get weight%
         # multi_select_stock = pn.widgets.MultiSelect(name='Stock Selections', value=[list(df_roi.index)[0]],options=list(df_roi.index), size=10)
-        selected_stock = st.multiselect("Tickers:", list(df_roi.index))
+        selected_stock = st.multiselect("Tickers:", list(main_df.keys()))
 
         # EH: get weight% for MC simulation of 4 stocks
+
+        disable_mc_button = True
         weight_dict = {}
         if len(selected_stock) > 4:
             st.error(
@@ -150,9 +153,11 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
                     'Invalid weight percentage input.  The sum of weight percentage should be 100.')
         else:
             st.write('Thank you for the input!')
-            
-        if st.button('Run MC Return Simulation'):            
-            with st.spinner('Exectuting Monte Carlo Simulator...'):
+            disable_mc_button = False
+
+
+        if st.button('Run MC Return Simulation', disabled=disable_mc_button):
+            with st.spinner('Running Monte Carlo Simulator...'):
                 run_monte_carlo(mc_df, weight_dict)
             
         else: 
@@ -278,7 +283,7 @@ def calculate_ratios(close_price_df):
     return roi_s, sharpe_s, std_s
 
 
-def filter(main_df, beta_ranges, sharpe_ranges, roi_ranges, beta_s, sharpe_s, roi_s):
+def filter(main_df, beta_ranges, sharpe_ranges, roi_ranges):
     """
     Filters the main_df based up the range selectors on the nav bar.
 
@@ -294,6 +299,8 @@ def filter(main_df, beta_ranges, sharpe_ranges, roi_ranges, beta_s, sharpe_s, ro
     Returns:
         main_df: A filtered version of the main df.
     """
+    roi_s, sharpe_s, std_s = calculate_ratios(main_df)
+    beta_s = get_beta(main_df)
     
     # unpacking the lows and highs into variables that can be used more easliy.
     beta_low, beta_high = beta_ranges
