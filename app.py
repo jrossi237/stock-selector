@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import hvplot.pandas
@@ -9,6 +10,9 @@ from PIL import Image
 import seaborn as sns
 import matplotlib.pyplot as plt
 from services.AlpacaService import AlpacaService
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # The wide option will take up the entire screen.
 st.set_page_config(page_title="Stock Selector App",layout="wide")
@@ -19,10 +23,8 @@ st.markdown(
         unsafe_allow_html=True,
 )
 
-# FIXME! Need to move these somewhere else.
-alpaca_key = 'PK0JS5VT47PQ6QT9ZZZT'
-alpaca_secret = 'ZwiurfF2rAE7OFQxdBZVFm9yjZ1aUX9JeLoWRPEr'
-
+alpaca_key = os.getenv('ALPACA_API_KEY')
+alpaca_secret = os.getenv('ALPACA_API_SECRET')
 alpacaService = AlpacaService(alpaca_key, alpaca_secret)
 
 # Loading some base var used throughout the code.
