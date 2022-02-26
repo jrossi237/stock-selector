@@ -20,8 +20,8 @@ st.markdown(
 )
 
 # FIXME! Need to move these somewhere else.
-alpaca_key = 'PKQGP0BR4BOGDYH6946H'
-alpaca_secret = 'dNcBOKDiV3Y9mrAj81rCkPT2uysP6my2ZNz6bBHy'
+alpaca_key = 'PK0JS5VT47PQ6QT9ZZZT'
+alpaca_secret = 'ZwiurfF2rAE7OFQxdBZVFm9yjZ1aUX9JeLoWRPEr'
 
 alpacaService = AlpacaService(alpaca_key, alpaca_secret)
 
@@ -150,15 +150,23 @@ def execute(sector, beta_ranges, sharpe_ranges, roi_ranges):
                     'Invalid weight percentage input.  The sum of weight percentage should be 100.')
         else:
             st.write('Thank you for the input!')
-
-
-
-        if st.button('Run MC Return Simulation'):
+            
+        if st.button('Run MC Return Simulation'):            
             with st.spinner('Exectuting Monte Carlo Simulator...'):
                 run_monte_carlo(mc_df, weight_dict)
             
         else: 
             st.write('Click button to see MC Return simulation based on your input.')
+        
+    
+        if st.button('Move ahead with Investment'):
+            investment1_amount = st.text_input("Enter your investment amount", 1000)
+            investment_amount = int(investment1_amount)
+            st.write(investment_amount)
+            run_alpaca_orders(weight_dict, investment_amount)
+        else:
+            st.write('Click button if you would like to moveahead with the Investment.') 
+    
     else:
         st.write("No stocks matched the criteria selected")
 
@@ -354,6 +362,7 @@ def print_confidence(stock, conf_pct, main_df, df_std):
 
 # RA: Configure a Monte Carlo simulation to forecast five years cumulative returns
 def run_monte_carlo(closing_prices_df, tickers_to_weights):
+    st.write(tickers_to_weights)
     """
     Run the monte carlo simulator on selected stocks
 
@@ -414,8 +423,21 @@ def run_monte_carlo(closing_prices_df, tickers_to_weights):
     st.write(f"Summary Statistics of MC Simulation:")
     st.table(MC_summary_statistics)
     st.write(f"The cumulative return based on MC Simulation for the selected portfolio on {number_of_simulations} simulations over {number_of_trading_days} days could be between {(MC_summary_statistics['95% CI Lower']):.2f}% and {(MC_summary_statistics['95% CI Upper']):.2f}%, with a 95% probability")
-    
 
+def run_alpaca_orders(tickers_to_weights, investment_amount):
+    amount_to_invest = []
+    relative_weights = list(tickers_to_weights.values())
+    rel_weights = []
+    for x in relative_weights:
+        rel_weights.append(x/sum(relative_weights))
+    rel_tickers = list(tickers_to_weights.keys())
+    for item in rel_weights:
+        amount_to_invest.append((item*investment_amount))
+    stock_investment = dict(zip(rel_tickers, amount_to_invest))
+    st.write(stock_investment)
+    alpacaService.buystock(stock_investment)
+   
+            
 def main():
     """
     Main function of this app. Sets up the side bar and then exectues the rest of the code.
@@ -446,8 +468,24 @@ def main():
                             current_nav_ranges['roi'][0],
                             current_nav_ranges['roi'][1],
                             (current_nav_ranges['roi'][0],
-                             current_nav_ranges['roi'][1]))    
+                             current_nav_ranges['roi'][1]))  
+    #investment1_amount = st.sidebar.slider("Pick a number", 0, 100000)
+    #investment_amount = investment1_amount(Capt)
+        
     execute(sector, beta, sharpe, roi)
-    
+        
 main()  
+
+
+
+  
+    
+
+    
+   
+
+    
+
+
+
 

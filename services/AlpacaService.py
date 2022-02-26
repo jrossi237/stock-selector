@@ -11,11 +11,22 @@ class AlpacaService:
     
     def __init__(self, alpaca_key, alpaca_secret):
         self.alpaca = tradeapi.REST(alpaca_key, alpaca_secret, api_version='v2')
+        self.alpaca_trading = tradeapi.REST(alpaca_key, alpaca_secret, base_url="https://paper-api.alpaca.markets", api_version='v2')
 
         if  self.cache_key not in st.session_state:
             st.session_state[self.cache_key] = {}
-
-
+           
+    def buystock (self, stock_investment):
+        for key,value in stock_investment.items():
+            self.alpaca_trading.submit_order(
+            symbol=key,
+            notional = value,
+            side='buy',
+            type='market',
+            time_in_force='day'
+        )
+        
+    
     def getLatestYearsData(self, tickers):
         """
         Gets the latest year of stock data for tickers that are passed into it.
